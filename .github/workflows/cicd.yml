@@ -1,23 +1,45 @@
 name: CICD for Dockerized Flask App
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: '3.11'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flask
+          pip install -r requirements.txtll pytest
+
       - name: Run tests
-        run: |
-          pytest test_app.py
+        run: pytest test_app.py
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./DockerFile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/dockerimagehub:latest
+            ${{ secrets.DOCKER_USERNAME }}/dockerimagehub:${{ github.sha }}
